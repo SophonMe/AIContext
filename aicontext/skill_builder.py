@@ -142,7 +142,16 @@ description: >
 ### scripts/query.py - SQL Query
 Run from the same directory as this SKILL.md file:
 ```bash
+# Simple queries — pass as argument:
 python scripts/query.py "SELECT COUNT(*) FROM activity"
+
+# Complex queries — pass via stdin (no quoting issues):
+python scripts/query.py <<'EOF'
+SELECT source, service, COUNT(*) as n
+FROM activity
+GROUP BY source, service
+ORDER BY n DESC
+EOF
 ```
 Read-only SQL against data/activity.db. Returns pipe-separated table. Max 200 rows.
 Use `--max-cell 0` for full cell contents.
