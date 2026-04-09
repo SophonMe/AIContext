@@ -305,6 +305,51 @@ def cmd_sync() -> None:
     _run_ingest(config.get("sources", []))
 
 
+def cmd_uninstall() -> None:
+    """Remove all aicontext data, agents, and background service."""
+    print("aicontext uninstall")
+    print("─" * 40)
+    print()
+
+    if not _ask("This will remove all aicontext data, agents, and background sync. Continue?", default_yes=False):
+        print("Cancelled.")
+        return
+
+    removed = []
+
+    # 1. Unload and remove launchd service
+    if sys.platform == "darwin" and os.path.exists(LAUNCHD_PLIST):
+        subprocess.run(["launchctl", "unload", LAUNCHD_PLIST], capture_output=True)
+        os.remove(LAUNCHD_PLIST)
+        removed.append(f"Background sync    -> {LAUNCHD_PLIST}")
+
+    # 2. Remove agent files
+    claude_agent = os.path.join(CLAUDE_AGENTS_DIR, "sophon-me-context-engine.md")
+    if os.path.exists(claude_agent):
+        os.remove(claude_agent)
+        removed.append(f"Claude Code agent   -> {claude_agent}")
+
+    codex_agent = os.path.join(CODEX_AGENTS_DIR, "sophon-me-context-engine.toml")
+    if os.path.exists(codex_agent):
+        os.remove(codex_agent)
+        removed.append(f"Codex agent         -> {codex_agent}")
+
+    # 3. Remove ~/.aicontext directory (data, config, scripts, logs, SKILL.md, reference)
+    if os.path.isdir(AICONTEXT_DIR):
+        shutil.rmtree(AICONTEXT_DIR)
+        removed.append(f"Data directory      -> {AICONTEXT_DIR}")
+
+    if removed:
+        print("Removed:")
+        for item in removed:
+            _print_ok(item)
+    else:
+        print("Nothing to remove — aicontext is not installed.")
+
+    print()
+    print("Done.")
+
+
 # ── Entry point ────────────────────────────────────────────────────────────
 
 def main() -> None:
@@ -314,12 +359,15 @@ def main() -> None:
         cmd_install()
     elif args[0] == "sync":
         cmd_sync()
+    elif args[0] == "uninstall":
+        cmd_uninstall()
     elif args[0] in ("-h", "--help", "help"):
-        print("Usage: aicontext install")
+        print("Usage: aicontext <command>")
         print()
         print("Commands:")
-        print("  install   Scan local data, ingest, and install the Claude Code agent")
-        print("  sync      Re-ingest all configured sources (runs automatically every hour)")
+        print("  install     Scan local data, ingest, and install agents")
+        print("  sync        Re-ingest all configured sources (runs automatically every hour)")
+        print("  uninstall   Remove all data, agents, and background sync")
     elif args[0] in ("-v", "--version", "version"):
         from aicontext import __version__
         print(f"aicontext {__version__}")
