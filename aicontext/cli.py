@@ -27,8 +27,6 @@ PI_SKILLS_DIR = os.path.expanduser("~/.pi/agent/skills")
 LAUNCHD_LABEL = "me.sophon.aicontext"
 LAUNCHD_PLIST = os.path.expanduser(f"~/Library/LaunchAgents/{LAUNCHD_LABEL}.plist")
 SYNC_INTERVAL_SECONDS = 3600  # 1 hour
-EXCHANGE_DIR = os.path.join(AICONTEXT_DIR, "exchange")
-
 
 def _default_chrome_path() -> str | None:
     candidates = [
@@ -177,31 +175,8 @@ def _print_ok(msg: str) -> None:
     print(f"  {msg}")
 
 
-def _run_exchange_sync() -> None:
-    """Export local data to exchange dir and import from peers, if pairing is configured."""
-    config = _load_config()
-    if not config or "device_id" not in config:
-        return
-
-    from aicontext.sync import export_skill, import_skills
-
-    device_id = config["device_id"]
-
-    try:
-        logger.info("=== P2P Sync ===")
-        export_skill(AICONTEXT_DIR, EXCHANGE_DIR, device_id)
-
-        merge_results = import_skills(AICONTEXT_DIR, EXCHANGE_DIR, device_id)
-        for r in merge_results:
-            if r.activity_inserted or r.activity_updated:
-                logger.info("  Merged: %d inserted, %d updated, %d skipped",
-                            r.activity_inserted, r.activity_updated, r.activity_skipped)
-    except Exception as exc:
-        logger.warning("P2P sync failed (will retry next cycle): %s", exc)
-
-
 def _run_ingest(sources_config: list[dict]) -> list:
-    """Ingest, sync peers, rebuild skill, reinstall agent. Used by both install and sync."""
+    """Ingest sources, rebuild skill, reinstall agents. Used by both install and sync."""
     from aicontext.timestamps import set_timezone
     from aicontext.sources import get_all_sources
     from aicontext.ingester import Ingester
@@ -210,7 +185,6 @@ def _run_ingest(sources_config: list[dict]) -> list:
 
     set_timezone(_get_local_timezone())
 
-    # Step 1: Ingest local sources
     all_sources = get_all_sources()
     to_run = []
     for entry in sources_config:
@@ -224,10 +198,7 @@ def _run_ingest(sources_config: list[dict]) -> list:
         ingester = Ingester(DATA_DIR)
         results = ingester.build(to_run)
 
-    # Step 2: P2P exchange sync (export local, import from peers)
-    _run_exchange_sync()
-
-    # Step 3: Rebuild skill and agents (includes peer data in stats)
+    # Rebuild skill and agents
     db_path = os.path.join(DATA_DIR, "activity.db")
     if os.path.exists(db_path):
         SkillBuilder(skill_root=AICONTEXT_DIR, db_path=db_path).build(results)
@@ -378,17 +349,7 @@ def cmd_uninstall() -> None:
         shutil.rmtree(pi_skill)
         removed.append(f"Pi skill            -> {pi_skill}")
 
-    # 3. Remove Syncthing exchange folder registration (best-effort)
-    try:
-        from aicontext.syncthing import read_api_key, remove_folder
-        api_key = read_api_key()
-        if api_key:
-            remove_folder(api_key)
-            removed.append("Syncthing folder   -> aicontext-exchange")
-    except Exception:
-        pass
-
-    # 4. Remove ~/.aicontext directory (data, config, scripts, logs, SKILL.md, reference)
+    # 3. Remove ~/.aicontext directory (data, config, scripts, logs, SKILL.md, reference)
     if os.path.isdir(AICONTEXT_DIR):
         shutil.rmtree(AICONTEXT_DIR)
         removed.append(f"Data directory      -> {AICONTEXT_DIR}")
@@ -404,175 +365,6 @@ def cmd_uninstall() -> None:
     print("Done.")
 
 
-# ── Pair ──────────────────────────────────────────────────────────────
-
-_PAIR_HELP = """\
-Usage: aicontext pair [device-id | --status | --web | --lan | --help]
-
-Configure P2P sync with other devices via Syncthing.
-
-  aicontext pair                Show this device's ID
-  aicontext pair <device-id>    Add a peer device and start syncing
-  aicontext pair --status       Show paired devices and sync status
-  aicontext pair --web          Enable sync over the internet (via Syncthing relays)
-  aicontext pair --lan          Restrict sync to local network only (default)
-  aicontext pair --help         Show this help
-
-Setup (one-time):
-  1. Install Syncthing:   brew install syncthing && brew services start syncthing
-  2. On this device:      aicontext pair
-  3. On other device:     aicontext pair <this-device-id>
-  4. Back on this device: aicontext pair <other-device-id>
-
-Adding more devices:
-  Pair each new device with any already-paired device.
-  All devices discover each other automatically (introducer mode).
-
-Sync mode:
-  By default, sync is restricted to the local network (LAN).
-  Use --web to enable sync over the internet via Syncthing's encrypted
-  relay servers. Use --lan to switch back to LAN-only.
-"""
-
-
-def cmd_pair() -> None:
-    """Configure P2P sync with another device via Syncthing."""
-    from aicontext.syncthing import (
-        check_installed, check_running, read_api_key,
-        get_device_id, add_device, ensure_folder, share_folder_with, get_status,
-        set_sync_mode, get_sync_mode,
-    )
-
-    args = sys.argv[2:]
-
-    if args and args[0] in ("-h", "--help"):
-        print(_PAIR_HELP)
-        return
-
-    # Check prerequisites
-    if not check_installed():
-        print("Error: Syncthing is not installed.", file=sys.stderr)
-        print()
-        print("Install it:")
-        print("  brew install syncthing && brew services start syncthing")
-        sys.exit(1)
-
-    if not check_running():
-        print("Error: Syncthing is not running.", file=sys.stderr)
-        print()
-        print("Start it:")
-        print("  brew services start syncthing")
-        sys.exit(1)
-
-    api_key = read_api_key()
-    if not api_key:
-        print("Error: Could not read Syncthing API key.", file=sys.stderr)
-        print("Make sure Syncthing has been started at least once.")
-        sys.exit(1)
-
-    my_id = get_device_id(api_key)
-
-    # Save device_id to config
-    config = _load_config() or {}
-    config["device_id"] = my_id
-    os.makedirs(AICONTEXT_DIR, exist_ok=True)
-    with open(CONFIG_PATH, "w", encoding="utf-8") as f:
-        json.dump(config, f, indent=2)
-
-    os.makedirs(EXCHANGE_DIR, exist_ok=True)
-    ensure_folder(api_key, EXCHANGE_DIR)
-
-    # Set LAN-only on first pair setup
-    if "sync_mode" not in config:
-        set_sync_mode(api_key, web=False)
-        config["sync_mode"] = "lan"
-        with open(CONFIG_PATH, "w", encoding="utf-8") as f:
-            json.dump(config, f, indent=2)
-
-    # --web / --lan: switch sync mode
-    if args and args[0] == "--web":
-        set_sync_mode(api_key, web=True)
-        config["sync_mode"] = "web"
-        with open(CONFIG_PATH, "w", encoding="utf-8") as f:
-            json.dump(config, f, indent=2)
-        print("Sync mode: web (internet via Syncthing relays)")
-        print("Note: All paired devices must also run `aicontext pair --web` for internet sync to work.")
-        return
-
-    if args and args[0] == "--lan":
-        set_sync_mode(api_key, web=False)
-        config["sync_mode"] = "lan"
-        with open(CONFIG_PATH, "w", encoding="utf-8") as f:
-            json.dump(config, f, indent=2)
-        print("Sync mode: lan (local network only)")
-        return
-
-    # --status: show paired devices with diagnostics
-    if args and args[0] == "--status":
-        status = get_status(api_key)
-        print(f"Device ID: {status['my_id']}")
-        print(f"Exchange folder: {EXCHANGE_DIR}")
-        print(f"Sync mode: {status['mode']}")
-        print()
-        if not status["devices"]:
-            print("No paired devices. Run: aicontext pair <device-id>")
-        else:
-            print("Paired devices:")
-            for d in status["devices"]:
-                name = f" ({d['name']})" if d["name"] else ""
-                if d["connected"]:
-                    addr = f"  {d['address']}" if d["address"] else ""
-                    print(f"  {d['id'][:20]}...{name}  connected{addr}")
-                elif d["never_seen"]:
-                    print(f"  {d['id'][:20]}...{name}  never connected")
-                    print(f"    -> The other device may not have paired back.")
-                    print(f"       Run on that device: aicontext pair {status['my_id']}")
-                else:
-                    last = d["last_seen"][:16].replace("T", " ") if d["last_seen"] else "unknown"
-                    print(f"  {d['id'][:20]}...{name}  disconnected (last seen: {last})")
-                    if status["mode"] == "lan":
-                        print(f"    -> Check: is the device on the same network? Is Syncthing running?")
-                        print(f"       For internet sync: aicontext pair --web (on both devices)")
-                    else:
-                        print(f"    -> Check: is Syncthing running on the other device?")
-        return
-
-    has_sources = config.get("sources")
-
-    # No args: print device ID
-    if not args:
-        print(f"Your device ID:")
-        print(f"  {my_id}")
-        print()
-        print("Run on your other device:")
-        print(f"  aicontext pair {my_id}")
-        if not has_sources:
-            print()
-            print("Note: Run `aicontext install` to set up data sources for syncing.")
-        return
-
-    # Add peer
-    peer_id = args[0].strip()
-    if peer_id == my_id:
-        print("Error: Cannot pair with yourself.", file=sys.stderr)
-        sys.exit(1)
-
-    add_device(api_key, peer_id, introducer=True)
-    share_folder_with(api_key, EXCHANGE_DIR, peer_id)
-
-    print(f"Paired with:")
-    print(f"  {peer_id}")
-    print()
-    print(f"Your device ID:")
-    print(f"  {my_id}")
-    print()
-    print("Run on the other device if you haven't already:")
-    print(f"  aicontext pair {my_id}")
-    if not has_sources:
-        print()
-        print("Note: Run `aicontext install` to set up data sources for syncing.")
-
-
 # ── Entry point ────────────────────────────────────────────────────────────
 
 def main() -> None:
@@ -582,8 +374,6 @@ def main() -> None:
         cmd_install()
     elif args[0] == "sync":
         cmd_sync()
-    elif args[0] == "pair":
-        cmd_pair()
     elif args[0] == "uninstall":
         cmd_uninstall()
     elif args[0] in ("-h", "--help", "help"):
@@ -592,7 +382,6 @@ def main() -> None:
         print("Commands:")
         print("  install     Scan local data, ingest, and install agents")
         print("  sync        Re-ingest all configured sources (runs automatically every hour)")
-        print("  pair        Configure P2P sync with another device via Syncthing")
         print("  uninstall   Remove all data, agents, and background sync")
     elif args[0] in ("-v", "--version", "version"):
         from aicontext import __version__
