@@ -187,14 +187,17 @@ def _run_exchange_sync() -> None:
 
     device_id = config["device_id"]
 
-    logger.info("=== P2P Sync ===")
-    export_skill(AICONTEXT_DIR, EXCHANGE_DIR, device_id)
+    try:
+        logger.info("=== P2P Sync ===")
+        export_skill(AICONTEXT_DIR, EXCHANGE_DIR, device_id)
 
-    merge_results = import_skills(AICONTEXT_DIR, EXCHANGE_DIR, device_id)
-    for r in merge_results:
-        if r.activity_inserted or r.activity_updated:
-            logger.info("  Merged: %d inserted, %d updated, %d skipped",
-                        r.activity_inserted, r.activity_updated, r.activity_skipped)
+        merge_results = import_skills(AICONTEXT_DIR, EXCHANGE_DIR, device_id)
+        for r in merge_results:
+            if r.activity_inserted or r.activity_updated:
+                logger.info("  Merged: %d inserted, %d updated, %d skipped",
+                            r.activity_inserted, r.activity_updated, r.activity_skipped)
+    except Exception as exc:
+        logger.warning("P2P sync failed (will retry next cycle): %s", exc)
 
 
 def _run_ingest(sources_config: list[dict]) -> list:
@@ -396,13 +399,15 @@ def cmd_uninstall() -> None:
 # ── Pair ──────────────────────────────────────────────────────────────
 
 _PAIR_HELP = """\
-Usage: aicontext pair [device-id | --status | --help]
+Usage: aicontext pair [device-id | --status | --web | --lan | --help]
 
 Configure P2P sync with other devices via Syncthing.
 
   aicontext pair                Show this device's ID
   aicontext pair <device-id>    Add a peer device and start syncing
   aicontext pair --status       Show paired devices and sync status
+  aicontext pair --web          Enable sync over the internet (via Syncthing relays)
+  aicontext pair --lan          Restrict sync to local network only (default)
   aicontext pair --help         Show this help
 
 Setup (one-time):
@@ -414,6 +419,11 @@ Setup (one-time):
 Adding more devices:
   Pair each new device with any already-paired device.
   All devices discover each other automatically (introducer mode).
+
+Sync mode:
+  By default, sync is restricted to the local network (LAN).
+  Use --web to enable sync over the internet via Syncthing's encrypted
+  relay servers. Use --lan to switch back to LAN-only.
 """
 
 
@@ -422,6 +432,7 @@ def cmd_pair() -> None:
     from aicontext.syncthing import (
         check_installed, check_running, read_api_key,
         get_device_id, add_device, ensure_folder, share_folder_with, get_status,
+        set_sync_mode, get_sync_mode,
     )
 
     args = sys.argv[2:]
@@ -463,11 +474,38 @@ def cmd_pair() -> None:
     os.makedirs(EXCHANGE_DIR, exist_ok=True)
     ensure_folder(api_key, EXCHANGE_DIR)
 
+    # Set LAN-only on first pair setup
+    if "sync_mode" not in config:
+        set_sync_mode(api_key, web=False)
+        config["sync_mode"] = "lan"
+        with open(CONFIG_PATH, "w", encoding="utf-8") as f:
+            json.dump(config, f, indent=2)
+
+    # --web / --lan: switch sync mode
+    if args and args[0] == "--web":
+        set_sync_mode(api_key, web=True)
+        config["sync_mode"] = "web"
+        with open(CONFIG_PATH, "w", encoding="utf-8") as f:
+            json.dump(config, f, indent=2)
+        print("Sync mode: web (internet via Syncthing relays)")
+        print("Note: All paired devices must also run `aicontext pair --web` for internet sync to work.")
+        return
+
+    if args and args[0] == "--lan":
+        set_sync_mode(api_key, web=False)
+        config["sync_mode"] = "lan"
+        with open(CONFIG_PATH, "w", encoding="utf-8") as f:
+            json.dump(config, f, indent=2)
+        print("Sync mode: lan (local network only)")
+        return
+
     # --status: show paired devices
     if args and args[0] == "--status":
         status = get_status(api_key)
+        mode = get_sync_mode(api_key)
         print(f"Device ID: {status['my_id']}")
         print(f"Exchange folder: {EXCHANGE_DIR}")
+        print(f"Sync mode: {mode}")
         print()
         if not status["devices"]:
             print("No paired devices. Run: aicontext pair <device-id>")

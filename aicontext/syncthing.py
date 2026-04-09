@@ -6,6 +6,7 @@ import json
 import logging
 import os
 import shutil
+import ssl
 import urllib.error
 import urllib.request
 import xml.etree.ElementTree as ET
@@ -15,7 +16,12 @@ logger = logging.getLogger(__name__)
 SYNCTHING_CONFIG_PATH = os.path.expanduser(
     "~/Library/Application Support/Syncthing/config.xml"
 )
-SYNCTHING_API = "http://127.0.0.1:8384"
+SYNCTHING_API = "https://127.0.0.1:8384"
+
+# Syncthing uses a self-signed certificate; skip verification for localhost.
+_SSL_CTX = ssl.create_default_context()
+_SSL_CTX.check_hostname = False
+_SSL_CTX.verify_mode = ssl.CERT_NONE
 EXCHANGE_FOLDER_ID = "aicontext-exchange"
 EXCHANGE_FOLDER_LABEL = "AIContext Exchange"
 
@@ -31,7 +37,7 @@ def check_running() -> bool:
     """Check if Syncthing is running by hitting its health endpoint."""
     try:
         req = urllib.request.Request(f"{SYNCTHING_API}/rest/noauth/health")
-        with urllib.request.urlopen(req, timeout=3):
+        with urllib.request.urlopen(req, timeout=3, context=_SSL_CTX):
             return True
     except Exception:
         return False
@@ -62,7 +68,7 @@ def _api(method: str, path: str, api_key: str, data=None):
         body = json.dumps(data).encode("utf-8")
         headers["Content-Type"] = "application/json"
     req = urllib.request.Request(url, data=body, headers=headers, method=method)
-    with urllib.request.urlopen(req, timeout=10) as resp:
+    with urllib.request.urlopen(req, timeout=10, context=_SSL_CTX) as resp:
         raw = resp.read().decode("utf-8")
         return json.loads(raw) if raw.strip() else None
 
@@ -127,6 +133,29 @@ def remove_folder(api_key: str) -> None:
         _api("DELETE", f"/rest/config/folders/{EXCHANGE_FOLDER_ID}", api_key)
     except urllib.error.HTTPError:
         pass
+
+
+# ── Sync mode (LAN vs web) ───────────────────────────────────────────────
+
+def set_sync_mode(api_key: str, web: bool) -> None:
+    """Configure Syncthing for LAN-only or web (internet) sync.
+
+    LAN-only (default): disables global discovery and relay servers.
+    Web: enables global discovery and relay servers for internet sync.
+    """
+    options = _api("GET", "/rest/config/options", api_key)
+    options["globalAnnounceEnabled"] = web
+    options["relaysEnabled"] = web
+    options["localAnnounceEnabled"] = True
+    _api("PUT", "/rest/config/options", api_key, options)
+
+
+def get_sync_mode(api_key: str) -> str:
+    """Return 'web' if global announce or relays are enabled, else 'lan'."""
+    options = _api("GET", "/rest/config/options", api_key)
+    if options.get("globalAnnounceEnabled") or options.get("relaysEnabled"):
+        return "web"
+    return "lan"
 
 
 # ── Status ────────────────────────────────────────────────────────────────
