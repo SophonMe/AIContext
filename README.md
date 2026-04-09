@@ -1,5 +1,8 @@
 # AIContext
 
+[![CI](https://github.com/SophonMe/AIContext/actions/workflows/ci.yml/badge.svg)](https://github.com/SophonMe/AIContext/actions/workflows/ci.yml)
+[![PyPI](https://img.shields.io/pypi/v/sophonme-aicontext)](https://pypi.org/project/sophonme-aicontext/)
+
 **Local-first AI context engine.** Your Claude Code agent automatically pulls from your local data — coding sessions, browser history, AI conversations — before asking you for context.
 
 No cloud. No uploads. Everything stays on your machine.
@@ -7,7 +10,7 @@ No cloud. No uploads. Everything stays on your machine.
 ## Install
 
 ```bash
-pip install aicontext && aicontext install
+pip install sophonme-aicontext && aicontext install
 ```
 
 `aicontext install` scans your machine for supported data sources, asks for consent per source type, ingests the data into a local SQLite database, and installs a subagent into Claude Code.
