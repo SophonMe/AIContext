@@ -103,6 +103,67 @@ class SkillBuilder:
                 path = os.path.join(self.ref_dir, f"{r.source.source_key}.md")
                 with open(path, 'w', encoding='utf-8') as f:
                     f.write(doc)
+        self._generate_activity_reference()
+
+    def _generate_activity_reference(self) -> None:
+        content = """\
+# activity.db — Query Reference
+
+## Schema
+
+```sql
+CREATE TABLE activity (
+    id        INTEGER PRIMARY KEY,
+    timestamp TEXT NOT NULL,   -- local time with tz offset, e.g. 2026-04-09T03:41:00-07:00
+    source    TEXT NOT NULL,
+    service   TEXT NOT NULL,
+    action    TEXT NOT NULL,
+    title     TEXT NOT NULL,
+    extra     TEXT,            -- JSON metadata (nullable)
+    ref_type  TEXT,            -- 'local', 'table', or 'url'
+    ref_id    TEXT
+)
+```
+
+## Query Best Practices
+
+**Merge multi-source queries with `IN`** instead of issuing separate queries per source:
+```sql
+SELECT timestamp, source, title
+FROM activity
+WHERE source IN ('claude_code', 'codex') AND action = 'prompted'
+  AND timestamp > datetime('now', '-10 days')
+ORDER BY timestamp DESC LIMIT 120
+```
+
+**Filter with `LIKE` before fetching** instead of dumping all rows:
+```sql
+SELECT timestamp, title FROM activity
+WHERE source = 'chrome'
+  AND (title LIKE '%job%' OR title LIKE '%resume%' OR title LIKE '%career%')
+ORDER BY timestamp DESC LIMIT 50
+```
+
+**Use `extra` for richer signal.** The `extra` column is JSON:
+- `claude_code` / `codex`: `project_path`, `git_branch`
+- `chrome` (visited): `duration_sec`
+
+```sql
+-- Time spent per project
+SELECT json_extract(extra, '$.project_path') AS project, COUNT(*) AS n
+FROM activity WHERE source = 'claude_code' AND extra IS NOT NULL
+GROUP BY project ORDER BY n DESC
+
+-- Pages actually read (not just glanced at)
+SELECT timestamp, title FROM activity
+WHERE source = 'chrome'
+  AND json_extract(extra, '$.duration_sec') > 60
+ORDER BY timestamp DESC LIMIT 50
+```
+"""
+        path = os.path.join(self.ref_dir, "activity.md")
+        with open(path, 'w', encoding='utf-8') as f:
+            f.write(content)
 
     def _generate_skill_md(self) -> None:
         index_path = os.path.join(self.data_dir, "index.json")
@@ -169,7 +230,8 @@ Use `--max-cell 0` for full cell contents.
 - All timestamps in local time ({tz}) with timezone offset
 - `ref_type='local'`: ref_id is a path under `data/reference_data/`, optionally with `#msg:<id>` suffix
 - `ref_type='url'`: ref_id is the URL itself
-- Reference docs in `reference/<source>.md` for source-specific details
+- `reference/activity.md` — schema and SQL query best practices
+- `reference/<source>.md` — source-specific field details and examples
 """
 
         path = os.path.join(self.skill_root, "SKILL.md")

@@ -328,7 +328,7 @@ def cmd_install() -> None:
     print()
     print("Done. The sophonme-context-engine agent is now active in Claude Code, Codex, and Pi.")
     print()
-    print("Try the following prompts in your coding agent!")
+    print("Try the following prompts in your agent!")
     print('  "Do thorough research on my history, and infer my MBTI"')
     print('  "Recommend a book, video, or podcast for me"')
     print('  "What do I want to buy the most?"')
