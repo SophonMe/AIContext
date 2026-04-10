@@ -36,7 +36,6 @@ class SkillBuilder:
         self.skill_root = skill_root
         self.db_path = db_path
         self.ref_dir = os.path.join(skill_root, "reference")
-        self.data_dir = os.path.join(skill_root, "data")
         self.real_data_dir = os.path.dirname(db_path)
 
     def build(self, results: list[IngestionResult]) -> None:
@@ -91,8 +90,7 @@ class SkillBuilder:
 
         conn.close()
 
-        index_path = os.path.join(self.data_dir, "index.json")
-        os.makedirs(os.path.dirname(index_path), exist_ok=True)
+        index_path = os.path.join(self.skill_root, "index.json")
         with open(index_path, 'w', encoding='utf-8') as f:
             json.dump(index, f, indent=2, ensure_ascii=False)
             f.write('\n')
@@ -177,7 +175,7 @@ ORDER BY timestamp DESC LIMIT 50
             f.write(content)
 
     def _generate_skill_md(self) -> None:
-        index_path = os.path.join(self.data_dir, "index.json")
+        index_path = os.path.join(self.skill_root, "index.json")
         with open(index_path, 'r', encoding='utf-8') as f:
             index = json.load(f)
 

@@ -3,7 +3,7 @@
 [![CI](https://github.com/SophonMe/AIContext/actions/workflows/ci.yml/badge.svg)](https://github.com/SophonMe/AIContext/actions/workflows/ci.yml)
 [![PyPI](https://img.shields.io/pypi/v/sophonme-aicontext)](https://pypi.org/project/sophonme-aicontext/)
 
-**Local-first AI context engine.** Your Claude Code agent automatically pulls from your local data — coding sessions, browser history, AI conversations — before asking you for context.
+**Local-first AI context engine.** Your Claude Code or Codex agent automatically pulls from your local data — coding sessions, browser history, AI conversations — before asking you for context.
 
 No cloud. No uploads. Everything stays on your machine.
 
@@ -13,7 +13,7 @@ No cloud. No uploads. Everything stays on your machine.
 pip install sophonme-aicontext && aicontext install
 ```
 
-`aicontext install` scans your machine for supported data sources, asks for consent per source type, ingests the data into a local SQLite database, and installs a subagent into Claude Code.
+`aicontext install` scans your machine for supported data sources, asks for consent per source type, ingests the data into a local SQLite database, and installs agents for Claude Code, Codex, and Pi.
 
 ```
 Scanning for local data sources...
@@ -34,12 +34,22 @@ Ingesting data...
 Done.
 
 The sophonme-context-engine agent is now active in Claude Code.
+The Codex agent is installed at `~/.codex/agents/sophonme-context-engine.toml`.
 Your data syncs automatically every hour.
 ```
 
+If you use Codex, older app versions may need this in `~/.codex/config.toml` for spawned-subagent support:
+
+```toml
+[features]
+multi_agent = true
+```
+
+If your Codex build already supports spawned agents by default, you do not need this. Restart Codex after changing the config.
+
 ## How it works
 
-After install, Claude Code has a `sophonme-context-engine` subagent. Claude automatically invokes it before asking you for context — querying your local activity database to surface relevant history for whatever task you're working on.
+After install, Claude Code and Codex both have a `sophonme-context-engine` agent. The agent queries your local activity database to surface relevant history for whatever task you're working on.
 
 A background sync service (`launchd` on macOS) re-ingests your data every hour, so context stays fresh without any manual steps.
 
@@ -73,7 +83,8 @@ More sources coming soon.
 | Agent | Status |
 |-------|--------|
 | Claude Code | Supported |
-| Others | Coming soon |
+| Codex | Supported (older versions may need `multi_agent = true` for spawned subagents) |
+| Pi | Supported |
 
 ## Privacy
 
