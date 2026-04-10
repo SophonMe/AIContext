@@ -354,7 +354,8 @@ def cmd_sync() -> None:
         datefmt="%Y-%m-%d %H:%M:%S",
     )
     logging.getLogger("aicontext").setLevel(logging.INFO)
-    _run_ingest(config.get("sources", []))
+    results = _run_ingest(config.get("sources", []))
+    _print_ingestion_table(results)
 
 
 def cmd_uninstall() -> None:
