@@ -7,7 +7,7 @@
 
 Local-first, private by default, and built to help agents start from your real context — not a blank slate.
 
-`aicontext` gives agents access to relevant personal context from your own data: coding sessions, browser history, AI conversations, and exported archives. Instead of asking you to repeatedly reconstruct what you were doing, the agent can recover the surrounding thread itself.
+`aicontext` gives agents access to relevant personal context from your own data: coding sessions, browser history, AI conversations, and exported archives. Instead of asking you to repeatedly reconstruct what you were doing, the agent can recover the surrounding thread itself. Recent activity and long-term history combine across sources to surface not just what you did, but who you are: your skills, your curiosities, your habits, and where your attention is going next.
 
 This is not just memory for chatbots.
 It is a system for ingesting, normalizing, and querying the artifacts of your digital life so agents can better understand what a task is connected to: what you worked on, what you looked at, what you already tried, and what may matter now.
