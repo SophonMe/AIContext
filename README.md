@@ -22,7 +22,7 @@ pip install sophonme-aicontext && aicontext install
 
 `aicontext install` scans your machine for supported local data sources, asks for consent before including each source type, ingests approved data into a local SQLite database, and installs the local agent configuration used by supported tools such as Claude Code, Codex, Pi, and OpenClaw.
 
-It does not upload your data or require any cloud service. Changes are limited to local configuration and the `~/.aicontext/` directory, and everything can be removed later if you uninstall the tool.
+It does not upload your data or require any cloud service. Changes are limited to local configuration and the `~/.aicontext/` directory, and everything can be removed later with `aicontext uninstall`.
 
 ```
 Scanning for local data sources...
