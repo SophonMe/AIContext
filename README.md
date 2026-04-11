@@ -122,6 +122,11 @@ If your Codex build already supports spawned agents by default, you do not need 
 
 All data is stored locally at `~/.aicontext/`. Nothing is sent to any server. The agent only reads from this directory.
 
+However, when an agent queries your data, the results become part of the prompt sent to the model provider (Anthropic, OpenAI, etc.). This means fragments of your personal history may reach the provider's API. Choose a provider you trust, and consider disabling model training on your data to avoid your personal context being used to improve future models:
+
+- [Anthropic (Claude)](https://privacy.claude.com/en/articles/10023580-is-my-data-used-for-model-training)
+- [OpenAI](https://help.openai.com/en/articles/8983130-what-if-i-want-to-keep-my-history-on-but-disable-model-training)
+
 ## Contributing
 
 Contributions are welcome, especially new data sources.
