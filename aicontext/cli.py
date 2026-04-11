@@ -53,6 +53,16 @@ def _default_edge_path() -> str | None:
     return None
 
 
+def _default_dia_path() -> str | None:
+    candidates = [
+        os.path.expanduser("~/Library/Application Support/Dia/User Data/Default/History"),
+    ]
+    for p in candidates:
+        if os.path.exists(p):
+            return p
+    return None
+
+
 _KNOWN_SOURCES = [
     {
         "key": "claude_code",
@@ -73,6 +83,11 @@ _KNOWN_SOURCES = [
         "key": "browser_edge",
         "label": "Edge browser history",
         "default_path": _default_edge_path(),
+    },
+    {
+        "key": "browser_dia",
+        "label": "Dia browser history",
+        "default_path": _default_dia_path(),
     },
     {
         "key": "browser_safari",

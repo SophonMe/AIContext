@@ -94,6 +94,7 @@ The agent reads from `~/.aicontext/` using a read-only SQL query script. It neve
 | Codex | Session history, prompts |
 | Chrome | Browser visits, downloads |
 | Edge | Browser visits, downloads |
+| Dia | Browser visits, downloads |
 | Safari | Browser visits |
 
 More sources coming soon.
