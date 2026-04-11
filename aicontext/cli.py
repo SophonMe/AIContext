@@ -96,6 +96,33 @@ def _get_local_timezone() -> str:
     return "UTC"
 
 
+# ── Logging ────────────────────────────────────────────────────────────────
+
+def _setup_logging() -> None:
+    """Dual logging: console at WARNING, sync.log at DEBUG."""
+    os.makedirs(LOGS_DIR, exist_ok=True)
+    log_path = os.path.join(LOGS_DIR, "sync.log")
+
+    root = logging.getLogger()
+    root.handlers.clear()
+    root.setLevel(logging.DEBUG)
+
+    # Console: only warnings and above (print handles user-facing output)
+    console = logging.StreamHandler()
+    console.setLevel(logging.WARNING)
+    console.setFormatter(logging.Formatter("%(message)s"))
+    root.addHandler(console)
+
+    # File: full debug with timestamps for post-mortem debugging
+    fh = logging.FileHandler(log_path, encoding="utf-8")
+    fh.setLevel(logging.DEBUG)
+    fh.setFormatter(logging.Formatter(
+        "%(asctime)s [%(levelname)s] %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    ))
+    root.addHandler(fh)
+
+
 # ── Config ─────────────────────────────────────────────────────────────────
 
 def _save_config(approved: list[tuple]) -> None:
@@ -306,6 +333,9 @@ def cmd_install() -> None:
     _save_config(approved)
 
     # 4. Run initial ingestion
+    _setup_logging()
+    logger.info("── aicontext install ──")
+
     print()
     print("Ingesting data...")
 
@@ -347,15 +377,8 @@ def cmd_sync() -> None:
         print("No config found. Run 'aicontext install' first.", file=sys.stderr)
         sys.exit(1)
 
-    # Reconfigure logging with timestamps for daemon/sync runs
-    root = logging.getLogger()
-    root.handlers.clear()
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S",
-    )
-    logging.getLogger("aicontext").setLevel(logging.INFO)
+    _setup_logging()
+    logger.info("── aicontext sync ──")
     results = _run_ingest(config.get("sources", []))
     _print_ingestion_table(results)
 

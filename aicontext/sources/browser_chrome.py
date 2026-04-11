@@ -108,7 +108,7 @@ class BrowserChromeSource(DataSource):
                 timestamp=ts, source="chrome", service="chrome", action="downloaded",
                 title=filename, extra=extra or None,
                 ref_type="url" if row["tab_url"] else None,
-                ref_id=row["tab_url"],
+                ref_id=row["tab_url"] or None,
             ))
 
         return records

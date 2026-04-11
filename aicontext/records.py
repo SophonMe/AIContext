@@ -34,6 +34,5 @@ class IngestionResult:
     records_skipped: int = 0
     reference_files_written: int = 0
     reference_files_overwritten: int = 0
-    conflicts: int = 0
     elapsed_seconds: float = 0.0
     errors: list[str] = field(default_factory=list)

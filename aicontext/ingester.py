@@ -186,7 +186,6 @@ class Ingester:
         to_insert = []
         to_update = []
         skipped = 0
-        conflicts = 0
 
         for key, pending in batch_map.items():
             new_rec = pending.record
@@ -195,8 +194,6 @@ class Ingester:
                 pending.result.records_inserted += 1
                 continue
 
-            conflicts += 1
-            pending.result.conflicts += 1
             ex_id, ex_rec = existing_map[key]
             winner = pick_older_record(ex_rec, new_rec)
             if winner is new_rec and not records_equal(ex_rec, new_rec):
@@ -206,7 +203,7 @@ class Ingester:
                 skipped += 1
                 pending.result.records_skipped += 1
 
-        return to_insert, to_update, skipped, conflicts, batch_dupes
+        return to_insert, to_update, skipped, batch_dupes
 
     def build(self, sources: list[tuple[DataSource, str]]) -> list[IngestionResult]:
         """Ingest a list of (DataSource, source_path) pairs.
@@ -227,9 +224,13 @@ class Ingester:
                 written, overwritten, ref_skipped = self._ingest_references(source, source_path, {})
                 result.reference_files_written = written + overwritten
                 result.reference_files_overwritten = overwritten
+                if written or overwritten or ref_skipped:
+                    logger.debug("  references: %d written, %d overwritten, %d unchanged",
+                                 written, overwritten, ref_skipped)
 
                 raw_records = source.ingest_activity(source_path, {})
                 result.records_parsed = len(raw_records)
+                logger.debug("  parsed %d activity records", len(raw_records))
 
                 valid_records = []
                 reject_reasons = Counter()
@@ -241,6 +242,9 @@ class Ingester:
                     else:
                         valid_records.append(rec)
 
+                if result.records_rejected:
+                    logger.debug("  rejected %d: %s", result.records_rejected, dict(reject_reasons))
+
                 if not valid_records:
                     result.elapsed_seconds = time.time() - t0
                     results.append(result)
@@ -250,23 +254,36 @@ class Ingester:
                     valid_records,
                     key_fn=lambda rec: (rec.service, rec.action, normalize_for_dedup(rec.title)),
                 )
+                logger.debug("  after collapse: %d records", len(valid_records))
 
                 for rec in valid_records:
                     pending_records.append(_PendingRecord(record=rec, source=source, result=result))
 
             except Exception as exc:
-                logger.debug("Error processing %s: %s", source.name, exc, exc_info=True)
+                logger.warning("  %s error: %s", source.name, exc)
+                logger.debug("  traceback:", exc_info=True)
                 result.errors.append(str(exc))
 
             result.elapsed_seconds = time.time() - t0
             results.append(result)
 
         if pending_records:
-            to_insert, to_update, skipped, conflicts, batch_dupes = self._dedup_records(pending_records)
+            to_insert, to_update, skipped, batch_dupes = self._dedup_records(pending_records)
+            logger.debug("dedup: %d new, %d updates, %d skipped, %d batch-dupes",
+                         len(to_insert), len(to_update), skipped, batch_dupes)
 
             if to_insert:
                 insert_records(self.db_path, to_insert)
             for row_id, rec in to_update:
                 update_record(self.db_path, row_id, rec)
+
+        for r in results:
+            if r.errors:
+                logger.info("%s: error — %s", r.source.name, r.errors[0])
+            else:
+                logger.info("%s: parsed=%d new=%d updated=%d skipped=%d rejected=%d (%.1fs)",
+                            r.source.name, r.records_parsed, r.records_inserted,
+                            r.records_updated, r.records_skipped, r.records_rejected,
+                            r.elapsed_seconds)
 
         return results
