@@ -59,6 +59,7 @@ Done. The sophonme-context-engine agent is now active in Claude Code, Codex, Pi,
 ## Example Prompts
 
 ```
+"Can you guess what’s been troubling me lately?"
 "Do thorough research on my history, and infer my MBTI"
 "Recommend a book, video, or podcast for me"
 "What do I want to buy the most?"
