@@ -49,6 +49,15 @@ class DataSource(ABC):
     def merge_reference(self, existing_data: Any, new_data: Any) -> Any:
         return new_data
 
+    @property
+    def mode(self) -> str:
+        """'dynamic' (default) or 'static'.
+
+        Static sources are skipped by the hourly sync daemon.
+        User-triggered sync runs all sources regardless of mode.
+        """
+        return "dynamic"
+
     @abstractmethod
     def get_reference_doc(self) -> str:
         ...

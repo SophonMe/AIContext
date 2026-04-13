@@ -142,10 +142,20 @@ def _setup_logging() -> None:
 
 def _save_config(approved: list[tuple]) -> None:
     config = _load_config() or {}
-    config["sources"] = [
-        {"key": source.source_key, "path": path}
-        for source, path in approved
+
+    # Preserve agent-added sources (keys not in _KNOWN_SOURCES)
+    known_keys = {s["key"] for s in _KNOWN_SOURCES}
+    approved_keys = {source.source_key for source, _ in approved}
+    preserved = [
+        entry for entry in config.get("sources", [])
+        if entry["key"] not in known_keys and entry["key"] not in approved_keys
     ]
+
+    config["sources"] = [
+        {"key": source.source_key, "path": path, "mode": source.mode}
+        for source, path in approved
+    ] + preserved
+
     os.makedirs(AICONTEXT_DIR, exist_ok=True)
     with open(CONFIG_PATH, "w", encoding="utf-8") as f:
         json.dump(config, f, indent=2)
@@ -176,6 +186,7 @@ def _install_launchd() -> bool:
         <string>-m</string>
         <string>aicontext.cli</string>
         <string>sync</string>
+        <string>--daemon</string>
     </array>
     <key>StartInterval</key>
     <integer>{SYNC_INTERVAL_SECONDS}</integer>
@@ -274,10 +285,17 @@ def _run_ingest(sources_config: list[dict]) -> list:
     all_sources = get_all_sources()
     to_run = []
     for entry in sources_config:
-        source = all_sources.get(entry["key"])
-        path = entry["path"]
-        if source and os.path.exists(path):
-            to_run.append((source, path))
+        key = entry["key"]
+        path = os.path.expanduser(entry["path"])
+        source = all_sources.get(key)
+        if not source:
+            logger.warning("Source '%s': not registered — skipping", key)
+            continue
+        if not os.path.exists(path):
+            logger.warning("Source '%s': path not found — %s (skipping)",
+                           source.name, path)
+            continue
+        to_run.append((source, path))
 
     results = []
     if to_run:
@@ -357,6 +375,10 @@ def cmd_install() -> None:
     sources_config = [{"key": s.source_key, "path": p} for s, p in approved]
     results = _run_ingest(sources_config)
 
+    # 5. Install ingest skill
+    from aicontext.ingest_skill import install
+    install(skills_dir=SHARED_SKILLS_DIR)
+
     print()
     _print_ingestion_table(results)
     print()
@@ -364,8 +386,13 @@ def cmd_install() -> None:
     _print_ok(f"Claude Code agent   -> {os.path.join(CLAUDE_AGENTS_DIR, 'sophonme-context-engine.md')}")
     _print_ok(f"Codex agent         -> {os.path.join(CODEX_AGENTS_DIR, 'sophonme-context-engine.toml')}")
     _print_ok(f"Pi / OpenClaw skill -> {os.path.join(SHARED_SKILLS_DIR, 'personal-data')}")
+    ingest_skill_path = os.path.expanduser("~/.aicontext/ingest_skill")
+    if os.path.isdir(ingest_skill_path):
+        _print_ok(f"Ingest skill        -> {ingest_skill_path}")
+        _print_ok(f"  Claude Code       -> ~/.claude/skills/aicontext-ingest/ (invoke: /aicontext-ingest)")
+        _print_ok(f"  Codex             -> ~/.codex/skills/aicontext-ingest/ (invoke: /aicontext-ingest)")
 
-    # 5. Install background sync service
+    # 6. Install background sync service
     if sys.platform == "darwin":
         if _install_launchd():
             _print_ok(f"Background sync     -> hourly via launchd ({LAUNCHD_LABEL})")
@@ -385,16 +412,24 @@ def cmd_install() -> None:
     print()
 
 
-def cmd_sync() -> None:
-    """Re-ingest all configured sources (called by launchd hourly)."""
+def cmd_sync(daemon: bool = False) -> None:
+    """Re-ingest configured sources.
+
+    When called by the user: runs all sources (including static).
+    When called by the daemon (--daemon): skips static sources.
+    """
     config = _load_config()
     if not config:
         print("No config found. Run 'aicontext install' first.", file=sys.stderr)
         sys.exit(1)
 
     _setup_logging()
-    logger.info("── aicontext sync ──")
-    results = _run_ingest(config.get("sources", []))
+    logger.info("── aicontext sync%s ──", " (daemon)" if daemon else "")
+    sources_config = config.get("sources", [])
+    if daemon:
+        sources_config = [s for s in sources_config
+                          if s.get("mode", "dynamic") != "static"]
+    results = _run_ingest(sources_config)
     _print_ingestion_table(results)
 
 
@@ -432,6 +467,19 @@ def cmd_uninstall() -> None:
         shutil.rmtree(shared_skill)
         removed.append(f"Pi / OpenClaw skill -> {shared_skill}")
 
+    # Remove ingest skill from all locations
+    for ingest_path in [
+        os.path.join(SHARED_SKILLS_DIR, "aicontext-ingest"),
+        os.path.expanduser("~/.claude/skills/aicontext-ingest"),
+        os.path.expanduser("~/.codex/skills/aicontext-ingest"),
+    ]:
+        if os.path.islink(ingest_path):
+            os.remove(ingest_path)
+            removed.append(f"Ingest skill        -> {ingest_path}")
+        elif os.path.isdir(ingest_path):
+            shutil.rmtree(ingest_path)
+            removed.append(f"Ingest skill        -> {ingest_path}")
+
     # 3. Remove ~/.aicontext directory (data, config, scripts, logs, SKILL.md, reference)
     if os.path.isdir(AICONTEXT_DIR):
         shutil.rmtree(AICONTEXT_DIR)
@@ -456,7 +504,7 @@ def main() -> None:
     if not args or args[0] == "install":
         cmd_install()
     elif args[0] == "sync":
-        cmd_sync()
+        cmd_sync(daemon="--daemon" in args)
     elif args[0] == "uninstall":
         cmd_uninstall()
     elif args[0] in ("-h", "--help", "help"):
@@ -464,7 +512,8 @@ def main() -> None:
         print()
         print("Commands:")
         print("  install     Scan local data, ingest, and install agents")
-        print("  sync        Re-ingest all configured sources (runs automatically every hour)")
+        print("  sync        Re-ingest all configured sources")
+        print("  sync --daemon  Re-ingest dynamic sources only (used by hourly background sync)")
         print("  uninstall   Remove all data, agents, and background sync")
     elif args[0] in ("-v", "--version", "version"):
         from aicontext import __version__
