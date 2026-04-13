@@ -45,6 +45,11 @@ Key files worth reading:
 The base path doesn't necessarily contain all known source types. Only
 implement sources for data that actually exists.
 
+Each data source is fully independent — its own guide, data files, and output
+file — so exploration and implementation can be parallelized. When there are
+many sources to implement, prefer doing file exploration, data examination,
+and code writing in parallel rather than sequentially.
+
 If you discover useful ingestible data that doesn't match any existing guide
 in `sources/`, ask the user to confirm, then:
 1. Implement the DataSource code regardless
@@ -61,6 +66,8 @@ in `sources/`, ask the user to confirm, then:
   internals. Use the guides and actual data to make all implementation decisions yourself.
 - **No multi-modal data** -- only ingest text and structured data (CSV, JSON, HTML,
   SQLite, ICS, etc.). Skip images, audio, video, and binary files.
+- **No defensive fallbacks** -- if a record's action type, timestamp, or title
+  cannot be determined from the data, skip it. Do not invent fallback values.
 
 ## What Data To Ingest
 

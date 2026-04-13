@@ -81,12 +81,41 @@ service values:
 
 ## Action Extraction
 
-Parse the action from the description text. Look for patterns like:
-- "Searched for ..." → action=`searched`, title=the query
-- "Visited ..." → action=`visited`, title=the page title
-- "Watched ..." → action=`watched`, title=the video title
-- "Translated ..." → action=`translated`
-- "Used ..." → action=`used`
+Each entry's text starts with an action prefix followed by the content.
+**Important:** Google uses non-breaking spaces (`\xa0`) between the action
+word and the content — normalize these to regular spaces before matching.
+
+Parse the action from the prefix. Known prefixes and their action values:
+
+- "Searched for ..." → `searched`
+- "Searched ..." → `searched`
+- "Visited ..." → `visited`
+- "Watched ..." → `watched`
+- "Translated ..." → `translated`
+- "Viewed ..." → `visited`
+- "Listened to ..." → `listened`
+- "Directions to ..." → `navigated`
+- "Explored ..." → `explored`
+- "Opened ..." → `visited`
+- "Called ..." → `called`
+- "Saved ..." → `saved`
+- "Liked ..." → `liked`
+- "Disliked ..." → `disliked`
+- "Subscribed to ..." → `subscribed`
+- "Shared ..." → `shared`
+- "Dismissed ..." → `dismissed`
+- "Prompted ..." → `prompted`
+- "Created ..." → `created`
+- "Defined ..." → `searched`
+- "Read ..." → `read`
+- "Tracked ..." → `tracked`
+- "Used ..." → `used`
+
+Entries without a recognized action prefix but with a link (e.g. Maps place
+lookups that are just `"<a>Place Name</a>"`) should be treated as `visited`.
+
+**Skip entries that have no recognized action prefix and no link.** Do not
+use a fallback action — if the action cannot be determined, drop the record.
 
 ## Extra Fields
 
@@ -100,7 +129,6 @@ Service-specific metadata can be extracted when available:
 ## Edge Cases
 
 - Some entries may lack timestamps — skip those records
-- HTML structure can vary between export dates; parse defensively
 - Entries may contain only a timestamp with no meaningful content — skip
 - Service directories may have names in the user's locale language
-- The export may include services not listed above — handle gracefully
+- The export may include services not listed above — skip unknown services
