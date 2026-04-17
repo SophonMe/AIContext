@@ -503,6 +503,18 @@ def cmd_uninstall() -> None:
 
 # ── Entry point ────────────────────────────────────────────────────────────
 
+def cmd_viewer(argv: list[str]) -> None:
+    """Launch the local HTML viewer for activity.db."""
+    import argparse as _argparse
+    from aicontext.viewer import run as _run_viewer
+
+    parser = _argparse.ArgumentParser(prog="aicontext viewer",
+                                      description="Local HTML viewer for activity.db")
+    parser.add_argument("--port", type=int, default=8080)
+    args = parser.parse_args(argv)
+    _run_viewer(port=args.port)
+
+
 def main() -> None:
     args = sys.argv[1:]
 
@@ -512,6 +524,8 @@ def main() -> None:
         cmd_sync(daemon="--daemon" in args)
     elif args[0] == "uninstall":
         cmd_uninstall()
+    elif args[0] == "viewer":
+        cmd_viewer(args[1:])
     elif args[0] in ("-h", "--help", "help"):
         print("Usage: aicontext <command>")
         print()
@@ -519,6 +533,7 @@ def main() -> None:
         print("  install     Scan local data, ingest, and install agents")
         print("  sync        Re-ingest all configured sources")
         print("  sync --daemon  Re-ingest dynamic sources only (used by hourly background sync)")
+        print("  viewer      Launch local HTML viewer for activity.db")
         print("  uninstall   Remove all data, agents, and background sync")
     elif args[0] in ("-v", "--version", "version"):
         from aicontext import __version__
