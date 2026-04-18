@@ -1,13 +1,15 @@
 """Chrome local browser data source."""
 
+from __future__ import annotations
+
 import logging
 import os
 import shutil
 import sqlite3
 import tempfile
 
-from aicontext.sources.base import DataSource
 from aicontext.records import ActivityRecord
+from aicontext.sources.base import DataSource
 from aicontext.timestamps import parse_chrome_epoch
 
 logger = logging.getLogger(__name__)
@@ -41,7 +43,6 @@ def _copy_and_query(db_path, queries):
 
 
 class BrowserChromeSource(DataSource):
-
     @property
     def name(self) -> str:
         return "Chrome Browser"
@@ -50,7 +51,9 @@ class BrowserChromeSource(DataSource):
     def source_key(self) -> str:
         return "browser_chrome"
 
-    def ingest_activity(self, source_path: str, source_config: dict) -> list[ActivityRecord]:
+    def ingest_activity(
+        self, source_path: str, source_config: dict
+    ) -> list[ActivityRecord]:
         visits_query = """
             SELECT v.visit_time, v.visit_duration, u.url, u.title,
                    ca.total_foreground_duration
@@ -62,7 +65,9 @@ class BrowserChromeSource(DataSource):
             SELECT d.start_time, d.target_path, d.tab_url, d.total_bytes, d.mime_type
             FROM downloads d
         """
-        visit_rows, download_rows = _copy_and_query(source_path, [visits_query, downloads_query])
+        visit_rows, download_rows = _copy_and_query(
+            source_path, [visits_query, downloads_query]
+        )
 
         records = []
         for row in visit_rows:
@@ -82,11 +87,18 @@ class BrowserChromeSource(DataSource):
             if foreground and foreground > 0:
                 extra["foreground_sec"] = round(foreground / 1_000_000, 1)
 
-            records.append(ActivityRecord(
-                timestamp=ts, source="chrome", service="chrome", action="visited",
-                title=title, extra=extra or None,
-                ref_type="url", ref_id=row["url"],
-            ))
+            records.append(
+                ActivityRecord(
+                    timestamp=ts,
+                    source="chrome",
+                    service="chrome",
+                    action="visited",
+                    title=title,
+                    extra=extra or None,
+                    ref_type="url",
+                    ref_id=row["url"],
+                )
+            )
 
         for row in download_rows:
             target_path = row["target_path"]
@@ -104,12 +116,18 @@ class BrowserChromeSource(DataSource):
             if row["mime_type"] and row["mime_type"].strip():
                 extra["mime_type"] = row["mime_type"]
 
-            records.append(ActivityRecord(
-                timestamp=ts, source="chrome", service="chrome", action="downloaded",
-                title=filename, extra=extra or None,
-                ref_type="url" if row["tab_url"] else None,
-                ref_id=row["tab_url"] or None,
-            ))
+            records.append(
+                ActivityRecord(
+                    timestamp=ts,
+                    source="chrome",
+                    service="chrome",
+                    action="downloaded",
+                    title=filename,
+                    extra=extra or None,
+                    ref_type="url" if row["tab_url"] else None,
+                    ref_id=row["tab_url"] or None,
+                )
+            )
 
         return records
 

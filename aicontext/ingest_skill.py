@@ -1,5 +1,7 @@
 """Install the aicontext-ingest skill to coding agent platforms."""
 
+from __future__ import annotations
+
 import logging
 import os
 import shutil

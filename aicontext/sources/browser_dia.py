@@ -1,5 +1,7 @@
 """Dia browser local data source (Chromium-based)."""
 
+from __future__ import annotations
+
 import logging
 import os
 import shutil

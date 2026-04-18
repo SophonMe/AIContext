@@ -1,5 +1,7 @@
 """Microsoft Edge local browser data source."""
 
+from __future__ import annotations
+
 import logging
 import os
 import shutil
