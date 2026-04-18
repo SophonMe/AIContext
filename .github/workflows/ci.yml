@@ -26,6 +26,10 @@ jobs:
         python -m pip install --upgrade pip
         python -m pip install .
 
+    - name: Import-check all submodules
+      run: |
+        python -c "import pkgutil, aicontext; [__import__(m.name) for m in pkgutil.walk_packages(aicontext.__path__, 'aicontext.')]"
+
     - name: Smoke test CLI entrypoint
       run: |
         aicontext </dev/null
