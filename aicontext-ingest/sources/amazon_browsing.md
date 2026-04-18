@@ -7,7 +7,7 @@ Amazon product browsing/viewing history exported as CSV.
 - **source_key**: `"amazon_browsing"`
 - **source**: `"amazon"`
 - **service**: `"browsing"`
-- **action**: `"viewed"`
+- **action**: `"visited"`
 - **mode**: `static`
 
 ## Data Location

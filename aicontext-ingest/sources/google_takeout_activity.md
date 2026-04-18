@@ -71,6 +71,7 @@ service values:
 | Gmail | `gmail` | `used` |
 | Google Translate | `translate` | `translated` |
 | Gemini Apps | `gemini` | `prompted`, `received` |
+| AI Mode | `ai_mode` | `searched` |
 | Image Search | `image_search` | `searched` |
 | Google Flights | `flights` | `searched` |
 | Google Shopping | `shopping` | `searched`, `visited` |
@@ -125,7 +126,27 @@ Service-specific metadata can be extracted when available:
 - **youtube**: `channel` (the channel name, if present)
 - **maps**: `address` (location text), `lat`/`lon` (coordinates from URLs)
 - **translate**: `lang_from`, `lang_to`, `query`
-- **gemini**: For assistant responses, emit a second record with action=`received`
+
+## Gemini Responses
+
+Gemini Apps entries include the assistant's reply. Within a content cell,
+the layout is:
+
+```
+Prompted <query>
+<a>Audio included.</a>           (optional, when voice input was used)
+<timestamp>
+<p>response text</p>
+```
+
+For each Gemini entry, emit TWO records sharing the same timestamp:
+1. action=`prompted` with the user's query as the title.
+2. action=`received` with the response text (from the `<p>` block) as the
+   title. Skip this second record if the response text is empty or missing.
+
+AI Mode entries do NOT contain response text — only the search query and,
+sometimes, follow-up queries from the same thread. Emit a single `searched`
+record per AI Mode entry.
 
 ## Edge Cases
 
