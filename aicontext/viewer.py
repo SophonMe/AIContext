@@ -134,7 +134,7 @@ td.extra { color: #8b949e; font-family: monospace; font-size: 11px; max-width: 3
   <!-- Browse tab (activity table with filters) -->
   <div class="tab-content active" id="tab-browse">
     <div class="stats" id="stats"></div>
-    <div class="filters">
+    <div class="filters" onkeydown="if(event.key==='Enter')applyFilters()">
       <select id="f-source"><option value="">All Sources</option></select>
       <select id="f-service"><option value="">All Services</option></select>
       <select id="f-action"><option value="">All Actions</option></select>
