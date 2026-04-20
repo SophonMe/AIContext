@@ -15,6 +15,7 @@ DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 
 DEFAULT_DB = 'activity.db'
 MAX_ROWS = 200
 DEFAULT_MAX_CELL = 120
+FOLD_MIN_ROWS = 10
 
 WRITE_KEYWORDS = {'insert', 'update', 'delete', 'drop', 'alter', 'create', 'attach', 'detach'}
 
@@ -107,6 +108,27 @@ def compress_timestamps(headers, rows):
     return prefix_line, headers, new_rows
 
 
+def fold_constant_columns(headers, rows):
+    if len(rows) < FOLD_MIN_ROWS or not headers:
+        return [], headers, rows
+
+    keep_idx = []
+    folded = []
+    for i, h in enumerate(headers):
+        first = rows[0][i]
+        if all(row[i] == first for row in rows):
+            folded.append((h, first))
+        else:
+            keep_idx.append(i)
+
+    if not folded or not keep_idx:
+        return [], headers, rows
+
+    new_headers = [headers[i] for i in keep_idx]
+    new_rows = [[row[i] for i in keep_idx] for row in rows]
+    return folded, new_headers, new_rows
+
+
 def format_table(headers, rows, truncated, total, max_cell):
     processed_rows = []
     for row in rows:
@@ -114,8 +136,15 @@ def format_table(headers, rows, truncated, total, max_cell):
         processed_rows.append(processed)
 
     prefix_line, headers, processed_rows = compress_timestamps(headers, processed_rows)
+    folded, headers, processed_rows = fold_constant_columns(headers, processed_rows)
 
     lines = []
+    if folded:
+        folded_desc = ', '.join(f'{k}={v!r}' for k, v in folded)
+        lines.append(
+            f'[note: columns hidden from the table below because '
+            f'all rows share the same value — {folded_desc}]'
+        )
     if prefix_line:
         lines.append(prefix_line)
 
