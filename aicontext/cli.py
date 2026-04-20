@@ -384,6 +384,13 @@ def cmd_install() -> None:
     except ImportError:
         pass
 
+    # 5b. Install canvas skill (optional — skill may not be bundled)
+    try:
+        from aicontext.canvas_skill import install as install_canvas_skill
+        install_canvas_skill(skills_dir=SHARED_SKILLS_DIR)
+    except ImportError:
+        pass
+
     print()
     _print_ingestion_table(results)
     print()
@@ -396,6 +403,11 @@ def cmd_install() -> None:
         _print_ok(f"Ingest skill        -> {ingest_skill_path}")
         _print_ok(f"  Claude Code       -> ~/.claude/skills/aicontext-ingest/ (invoke: /aicontext-ingest)")
         _print_ok(f"  Codex             -> ~/.codex/skills/aicontext-ingest/ (invoke: /aicontext-ingest)")
+    canvas_skill_path = os.path.expanduser("~/.aicontext/canvas_skill")
+    if os.path.isdir(canvas_skill_path):
+        _print_ok(f"Canvas skill        -> {canvas_skill_path}")
+        _print_ok(f"  Claude Code       -> ~/.claude/skills/aicontext-canvas/ (invoke: /aicontext-canvas)")
+        _print_ok(f"  Codex             -> ~/.codex/skills/aicontext-canvas/ (invoke: /aicontext-canvas)")
 
     # 6. Install background sync service
     if sys.platform == "darwin":
@@ -484,6 +496,19 @@ def cmd_uninstall() -> None:
         elif os.path.isdir(ingest_path):
             shutil.rmtree(ingest_path)
             removed.append(f"Ingest skill        -> {ingest_path}")
+
+    # Remove canvas skill from all locations
+    for canvas_path in [
+        os.path.join(SHARED_SKILLS_DIR, "aicontext-canvas"),
+        os.path.expanduser("~/.claude/skills/aicontext-canvas"),
+        os.path.expanduser("~/.codex/skills/aicontext-canvas"),
+    ]:
+        if os.path.islink(canvas_path):
+            os.remove(canvas_path)
+            removed.append(f"Canvas skill        -> {canvas_path}")
+        elif os.path.isdir(canvas_path):
+            shutil.rmtree(canvas_path)
+            removed.append(f"Canvas skill        -> {canvas_path}")
 
     # 3. Remove ~/.aicontext directory (data, config, scripts, logs, SKILL.md, reference)
     if os.path.isdir(AICONTEXT_DIR):
