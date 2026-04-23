@@ -193,9 +193,8 @@ The language the user typed in is usually incidental — render the
 *content* of a query or prompt rather than noting which language it was
 in, unless the language itself is part of the thread.
 
-**Do not use hyphens (`-`) or em/en dashes (`—`, `–`) in the body.** Use
-commas, periods, or parentheses instead. Rewrite compound constructions
-naturally.
+**Do not use `-`, `—`, or `–` as punctuation.** Use commas, periods, or
+parentheses instead. Hyphens in compound terms are fine.
 
 ## Produce the Bundle
 
