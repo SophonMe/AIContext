@@ -189,6 +189,10 @@ contain non-English text (e.g., Chinese search queries or prompts),
 translate or paraphrase into English prose; do not preserve the original
 script inline. Do not populate the `glosses` field.
 
+The language the user typed in is usually incidental — render the
+*content* of a query or prompt rather than noting which language it was
+in, unless the language itself is part of the thread.
+
 **Do not use hyphens (`-`) or em/en dashes (`—`, `–`) in the body.** Use
 commas, periods, or parentheses instead. Rewrite compound constructions
 naturally.
