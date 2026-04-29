@@ -199,7 +199,7 @@ ORDER BY timestamp DESC LIMIT 50
         query_script = os.path.join(self.skill_root, "scripts", "query.py")
 
         skill_md = f"""---
-name: personal-data
+name: aicontext-personal
 description: >
   Personal activity context — {_approx(total)} activities across {n_services} services ({date_range_str}).
   Use this skill to understand the user's recent work, browsing, and AI conversations.

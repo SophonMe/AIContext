@@ -58,7 +58,7 @@ Ingesting data...
   Generated SKILL.md  -> ~/.aicontext/skill/SKILL.md
   Claude Code agent   -> ~/.claude/agents/sophonme-context-engine.md
   Codex agent         -> ~/.codex/agents/sophonme-context-engine.toml
-  Pi / OpenClaw skill -> ~/.agents/skills/personal-data
+  Pi / OpenClaw skill -> ~/.agents/skills/aicontext-personal
   Background sync     -> hourly via launchd (sophonme.aicontext)
 
 Done. The sophonme-context-engine agent is now active in Claude Code, Codex, Pi, and OpenClaw.

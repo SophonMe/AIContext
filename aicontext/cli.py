@@ -397,7 +397,7 @@ def cmd_install() -> None:
     _print_ok(f"Generated SKILL.md  -> {os.path.join(SKILL_DIR, 'SKILL.md')}")
     _print_ok(f"Claude Code agent   -> {os.path.join(CLAUDE_AGENTS_DIR, 'sophonme-context-engine.md')}")
     _print_ok(f"Codex agent         -> {os.path.join(CODEX_AGENTS_DIR, 'sophonme-context-engine.toml')}")
-    _print_ok(f"Pi / OpenClaw skill -> {os.path.join(SHARED_SKILLS_DIR, 'personal-data')}")
+    _print_ok(f"Pi / OpenClaw skill -> {os.path.join(SHARED_SKILLS_DIR, 'aicontext-personal')}")
     ingest_skill_path = os.path.expanduser("~/.aicontext/ingest_skill")
     if os.path.isdir(ingest_skill_path):
         _print_ok(f"Ingest skill        -> {ingest_skill_path}")
@@ -479,7 +479,7 @@ def cmd_uninstall() -> None:
         os.remove(codex_agent)
         removed.append(f"Codex agent         -> {codex_agent}")
 
-    shared_skill = os.path.join(SHARED_SKILLS_DIR, "personal-data")
+    shared_skill = os.path.join(SHARED_SKILLS_DIR, "aicontext-personal")
     if os.path.isdir(shared_skill):
         shutil.rmtree(shared_skill)
         removed.append(f"Pi / OpenClaw skill -> {shared_skill}")

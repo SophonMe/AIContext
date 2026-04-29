@@ -180,12 +180,12 @@ def install_codex_agent(skill_root: str, db_path: str, agents_dir: str) -> str:
 def install_shared_skill(skill_root: str, data_dir: str, skills_dir: str) -> str:
     """Symlink aicontext into the cross-harness skills directory.
 
-    Creates <skills_dir>/personal-data/ with symlinks pointing back to
+    Creates <skills_dir>/aicontext-personal/ with symlinks pointing back to
     skill_root (~/.aicontext/skill/) and data_dir (~/.aicontext/data/).
     The default target is ~/.agents/skills/, which is natively discovered
     by both Pi and OpenClaw.
     """
-    skill_dir = os.path.join(skills_dir, "personal-data")
+    skill_dir = os.path.join(skills_dir, "aicontext-personal")
     os.makedirs(skill_dir, exist_ok=True)
 
     targets = {
