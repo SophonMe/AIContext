@@ -223,7 +223,7 @@ GROUP BY source, service
 ORDER BY n DESC
 EOF
 ```
-Read-only SQL against {self.db_path}. Returns pipe-separated table. Max 200 rows.
+Read-only SQL against the local activity database. Returns pipe-separated table. Max 200 rows.
 Use `--max-cell 0` for full cell contents.
 
 ## What's Available
